@@ -1,0 +1,35 @@
+server.port=8080
+spring.application.name=Water Usage Monitor
+
+# File path configuration
+water.meter.file.path=${HOME}/bin/monitor.out
+
+# CORS configuration
+spring.web.cors.allowed-origins=http://localhost:5173
+spring.web.cors.allowed-methods=GET,POST,PUT,DELETE,OPTIONS
+spring.web.cors.allowed-headers=*
+
+# Email configuration
+spring.mail.host=smtp.gmail.com
+spring.mail.port=587
+spring.mail.username=${GMAIL_USERNAME:your-email@gmail.com}
+spring.mail.password=${GMAIL_APP_PASSWORD:your-app-specific-password}
+spring.mail.properties.mail.smtp.auth=true
+spring.mail.properties.mail.smtp.starttls.enable=true
+spring.mail.properties.mail.smtp.starttls.required=true
+
+# Email recipient configuration
+email.recipient=${EMAIL_RECIPIENT:recipient@example.com}
+email.from=${EMAIL_FROM:your-email@gmail.com}
+
+# Monitoring configuration
+monitoring.abnormal.usage.threshold=50
+monitoring.abnormal.usage.period.minutes=30
+monitoring.check.interval.minutes=10
+
+# Scheduling configuration
+spring.task.scheduling.pool.size=2
+
+# Logging
+logging.level.com.watermonitor=INFO
+logging.level.com.watermonitor.service.WaterMonitoringScheduler=DEBUG

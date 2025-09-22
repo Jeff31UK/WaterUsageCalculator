@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="description" content="Track and analyze your water consumption with real-time monitoring and usage statistics">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>Water Usage Monitor</title>
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@3.0.0/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.2/dist/axios.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="title-section">
+                    <svg class="water-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
+                    </svg>
+                    <h1>Water Usage Monitor</h1>
+                </div>
+                <div class="header-actions">
+                    <select id="periodSelect" class="period-select">
+                        <option value="day">Last 24 Hours</option>
+                        <option value="week">Last Week</option>
+                        <option value="month">Last Month</option>
+                        <option value="ytd">Year to Date</option>
+                    </select>
+                    <button id="emailButton" class="email-button" onclick="sendEmailSummary()">
+                        <svg class="email-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                            <polyline points="22,6 12,13 2,6"></polyline>
+                        </svg>
+                        <span class="button-text">Email Summary</span>
+                    </button>
+                </div>
+            </div>
+            <p class="subtitle">Track and analyze your water consumption</p>
+        </header>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="loading-state">
+            <div class="loading-spinner"></div>
+            <p>Loading water usage data...</p>
+        </div>
+
+        <!-- Error State -->
+        <div id="errorState" class="error-state" style="display: none;">
+            <div class="error-card">
+                <h3>Error Loading Data</h3>
+                <p id="errorMessage"></p>
+                <button onclick="fetchData()" class="retry-button">Retry</button>
+            </div>
+        </div>
+
+        <!-- Main Dashboard -->
+        <div id="dashboard" style="display: none;">
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-header">Total Usage</div>
+                    <div class="stat-value" id="totalUsage">0 gal</div>
+                    <div class="stat-change" id="usageChange"></div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-header">Daily Average</div>
+                    <div class="stat-value" id="dailyAverage">0 gal</div>
+                    <div class="stat-subtext">Average daily consumption</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-header">Peak Usage</div>
+                    <div class="stat-value" id="peakUsage">0 gal</div>
+                    <div class="stat-subtext">Highest daily usage</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-header">Current Reading</div>
+                    <div class="stat-value" id="currentReading">0</div>
+                    <div class="stat-subtext">Total meter reading</div>
+                </div>
+            </div>
+
+            <!-- Chart Tabs -->
+            <div class="chart-section">
+                <div class="tabs">
+                    <button class="tab-button active" data-tab="usage">Usage Over Time</button>
+                    <button class="tab-button" data-tab="cumulative">Cumulative Usage</button>
+                    <button class="tab-button" data-tab="hourly">Consumption Rate</button>
+                </div>
+                
+                <div class="chart-container">
+                    <div id="usageTab" class="tab-content active">
+                        <h3>Water Usage Over Time</h3>
+                        <p class="chart-description">Gallons consumed during the selected period</p>
+                        <canvas id="usageChart"></canvas>
+                    </div>
+                    
+                    <div id="cumulativeTab" class="tab-content">
+                        <h3>Cumulative Water Usage</h3>
+                        <p class="chart-description">Total meter reading over time</p>
+                        <canvas id="cumulativeChart"></canvas>
+                    </div>
+                    
+                    <div id="hourlyTab" class="tab-content">
+                        <h3>Water Consumption Rate</h3>
+                        <p class="chart-description">Usage pattern for the selected period</p>
+                        <canvas id="hourlyChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Period Summary -->
+            <div class="summary-card">
+                <h3 class="summary-title">
+                    <svg class="calendar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                    </svg>
+                    Period Summary
+                </h3>
+                <div class="summary-grid">
+                    <div class="summary-item">
+                        <p class="summary-label">Period</p>
+                        <p class="summary-value" id="summaryPeriod">-</p>
+                    </div>
+                    <div class="summary-item">
+                        <p class="summary-label">Start Date</p>
+                        <p class="summary-value" id="summaryStartDate">-</p>
+                    </div>
+                    <div class="summary-item">
+                        <p class="summary-label">End Date</p>
+                        <p class="summary-value" id="summaryEndDate">-</p>
+                    </div>
+                    <div class="summary-item">
+                        <p class="summary-label">Lowest Daily Usage</p>
+                        <p class="summary-value" id="summaryLowestUsage">-</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Email Notification Modal -->
+    <div id="emailModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Sending Email...</h3>
+                <button class="modal-close" onclick="closeEmailModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="modalMessage">Please wait while we send your email summary...</p>
+                <div id="modalSpinner" class="modal-spinner"></div>
+            </div>
+        </div>
+    </div>
+
+    <script th:src="@{/js/dashboard.js}"></script>
+</body>
+</html>

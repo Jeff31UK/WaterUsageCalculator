@@ -1,57 +1,200 @@
+# Water Usage Monitor
 
-I use this program as described below to monitor my water usage. My water meter is a NEPTUNE brand which wirelessly transmits its usage data.
+A comprehensive water usage monitoring system built with Spring Boot that tracks water consumption from Neptune water meters, provides visualizations, and sends automated alerts.
 
-Hardware:
-1. "Nooelec NESDR Mini USB RTL-SDR & ADS-B Receiver Set, RTL2832U & R820T Tuner, MCX Input. Low-Cost Software Defined Radio Compatible with Many SDR Software Packages. R820T Tuner & ESD-Safe Antenna Input" (Amazon)
+## Features
 
-Software:
-1. Debian Linux 12
-2. rtlsdr ('driver' to talk to the SDR radio)
-3. rtlamr (used to read from a frequency and output to a CSV file)
-4. This Java program to parse CSV file and output usage
-5. Optional: Google email account to send notifications
+- **Real-time Dashboard**: Interactive web interface with usage charts and statistics
+- **Multiple Time Views**: Day, Week, Month, and Year-to-Date data visualization
+- **Email Alerts**:
+  - Daily usage summaries at 9:00 PM
+  - Abnormal usage detection (>50 gallons in 30 minutes)
+  - Meter failure notifications
+- **Responsive Design**: Works on desktop, tablet, and mobile devices
 
+## Hardware Requirements
 
-RTLSDR: (https://gitea.osmocom.org/sdr/rtl-sdr.git)
-RTLAMR: (https://github.com/bemasher/rtlamr@latest)
+1. **Neptune Water Meter** with wireless transmission capability
+2. **SDR Radio Receiver**: Nooelec NESDR Mini USB RTL-SDR & ADS-B Receiver Set (RTL2832U & R820T Tuner)
 
-I won't detail compiling and installing those as it'll be dependant on your setup.
+## Software Requirements
 
-Once you get RTLSDR & RTLAMR working, I run the following shell script to append my usage to my CSV file:
+1. **Operating System**: Debian Linux 12 (or compatible)
+2. **Java**: JDK 17 or higher
+3. **Maven**: 3.6 or higher
+4. **SDR Software**:
+   - rtlsdr - Driver for SDR radio ([https://gitea.osmocom.org/sdr/rtl-sdr.git](https://gitea.osmocom.org/sdr/rtl-sdr.git))
+   - rtlamr - Meter reading software ([https://github.com/bemasher/rtlamr](https://github.com/bemasher/rtlamr))
 
+## Data Collection Setup
+
+### 1. Install SDR Software
+
+Follow the installation guides for rtlsdr and rtlamr based on your system configuration.
+
+### 2. Configure Data Collection Script
+
+Create a shell script to continuously collect meter readings:
+
+```bash
+#!/bin/bash
 while true
 do
-  ~/go/bin/rtlamr  -msgtype=all -format=csv -centerfreq=914000155 -filterid=30904705 -single=true >>monitor.out
+  ~/go/bin/rtlamr -msgtype=all -format=csv -centerfreq=914000155 -filterid=30904705 -single=true >>~/bin/monitor.out
   sleep 60
 done
+```
 
-You'll need to modify centerfreq parameter to find the frequency your meter is transmitting on
-You'll need to modify filterid to correspond to your NEPTUNE water meter transmitter serial #
+**Important Configuration**:
+- `centerfreq`: Adjust to your meter's transmission frequency
+- `filterid`: Replace with your Neptune meter's serial number
+- Output file: `~/bin/monitor.out` (default location)
 
-With this running, you'll get a CSV file like this:
+### 3. CSV Data Format
 
+The meter readings are stored in CSV format:
+```
 2024-08-11T15:40:18.596641644-04:00,0,0,30904705,13,0x0,0x0,44465,0xa0b9
-2024-08-11T15:41:21.587338171-04:00,0,0,30904705,13,0x0,0x0,44465,0xa0b9
-2024-08-11T15:42:38.525901081-04:00,0,0,30904705,13,0x0,0x0,44465,0xa0b9
-2024-08-11T15:43:41.660479083-04:00,0,0,30904705,13,0x0,0x0,44465,0xa0b9
-2024-08-11T15:44:44.288284991-04:00,0,0,30904705,13,0x0,0x0,44465,0xa0b9
-(the water meter reading is the column 44465 * 10 gallons)
+```
+- Column 8 (`44465`): Water meter reading in 10-gallon units (multiply by 10 for actual gallons)
 
-Now for the Java program.
+## Application Installation
 
-To compile and run it you need the following libraries:
-activation-1.1.1.jar
-jakarta-activation-api-1.2.1.jar
-javax.mail.jar
+### 1. Clone the Repository
 
-.. Once compiled you run like this:
-export CLASSPATH=javax.mail.jar:.:activation-1.1.1.jar:
-java WaterUsageCalculator <csv file> <smtp username> <smtp password>
+```bash
+git clone https://github.com/Jeff31UK/WaterUsageCalculator.git
+cd WaterUsageCalculator
+```
 
-The program is pretty self explanatory, please feel free to change as needed.
+### 2. Configure the Application
 
+Copy the template configuration file:
+```bash
+cp src/main/resources/application.properties.default src/main/resources/application.properties
+```
 
+Edit `application.properties` to add your email credentials:
+```properties
+spring.mail.username=your-email@gmail.com
+spring.mail.password=your-app-specific-password
+email.recipient=recipient@example.com
+```
 
+**Note**: Use Gmail app-specific passwords for security. Enable 2FA and generate an app password at [https://myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
 
+### 3. Build and Run
 
+```bash
+# Build the application
+mvn clean package
 
+# Run the application
+./start.sh
+# or
+mvn spring-boot:run
+```
+
+The application will be available at [http://localhost:8080](http://localhost:8080)
+
+## Application Architecture
+
+### Backend (Spring Boot)
+- **REST API**: Provides endpoints for data retrieval and email sending
+- **Scheduled Tasks**: Automated monitoring and daily summaries
+- **Email Service**: Sends alerts using JavaMail/SMTP
+- **Data Processing**: Reads and analyzes CSV meter data
+
+### Frontend (Vanilla JavaScript)
+- **Chart.js**: Interactive data visualizations
+- **Responsive Design**: Mobile-friendly interface
+- **Real-time Updates**: Auto-refreshes every 5 minutes
+
+## API Endpoints
+
+- `GET /api/water/readings` - All water readings
+- `GET /api/water/chart/{period}` - Chart data (day/week/month/ytd)
+- `GET /api/water/stats/{period}` - Usage statistics
+- `POST /api/water/email/{period}` - Send email summary
+- `GET /api/water/monitoring/status` - System status
+- `GET /api/water/health` - Health check
+
+## Email Notifications
+
+### Daily Summary (9:00 PM)
+- Hourly usage breakdown
+- Daily totals and averages
+- Comparison with previous day
+
+### Abnormal Usage Alert
+- Triggered when >50 gallons used in 30 minutes
+- Sent maximum once per day
+- Includes usage details and timestamp
+
+### Meter Failure Alert
+- Triggered when no readings for 30+ minutes
+- Sent once until readings resume
+
+## Environment Variables
+
+Instead of storing credentials in `application.properties`, you can use environment variables:
+
+```bash
+export GMAIL_USERNAME=your-email@gmail.com
+export GMAIL_APP_PASSWORD=your-app-password
+export EMAIL_RECIPIENT=recipient@example.com
+```
+
+## Project Structure
+
+```
+├── pom.xml                           # Maven configuration
+├── start.sh                          # Startup script
+├── src/
+│   └── main/
+│       ├── java/com/watermonitor/
+│       │   ├── controller/          # REST endpoints
+│       │   ├── service/             # Business logic
+│       │   ├── model/               # Data models
+│       │   └── dto/                 # Data transfer objects
+│       └── resources/
+│           ├── application.properties
+│           ├── templates/           # HTML templates
+│           └── static/              # CSS and JavaScript
+└── README.md
+```
+
+## Troubleshooting
+
+### No Data Showing
+- Verify `~/bin/monitor.out` exists and is being updated
+- Check file format matches expected CSV structure
+- Application generates mock data if file is missing
+
+### Email Not Sending
+- Verify Gmail app password is correct
+- Check SMTP settings in application.properties
+- Review logs at `/tmp/spring.log`
+
+### Meter Reading Issues
+- Ensure rtlamr is running and writing to monitor.out
+- Check SDR radio connection
+- Verify frequency and meter ID settings
+
+## Contributing
+
+Feel free to submit issues and pull requests.
+
+## License
+
+This project is open source and available under the MIT License.
+
+## Author
+
+Jeff31UK
+
+## Acknowledgments
+
+- Based on original WaterUsageCalculator.java implementation
+- Uses rtlamr for meter reading ([https://github.com/bemasher/rtlamr](https://github.com/bemasher/rtlamr))
+- Built with Spring Boot and Chart.js
